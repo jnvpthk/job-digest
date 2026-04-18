@@ -10,15 +10,17 @@ import os
 import json
 import time
 import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ── CONFIG ──────────────────────────────────────────────────────────────────
 APIFY_TOKEN        = os.environ["APIFY_TOKEN"]
 ANTHROPIC_API_KEY  = os.environ["ANTHROPIC_API_KEY"]
-TWILIO_SID         = os.environ["TWILIO_ACCOUNT_SID"]
-TWILIO_AUTH        = os.environ["TWILIO_AUTH_TOKEN"]
-TWILIO_FROM        = os.environ["TWILIO_WHATSAPP_FROM"]   # e.g. "whatsapp:+14155238886"
-WHATSAPP_TO        = os.environ["WHATSAPP_TO"]            # e.g. "whatsapp:+918237730919"
+GMAIL_USER         = os.environ["GMAIL_USER"]
+GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
+EMAIL_TO           = os.environ["EMAIL_TO"]
 
 APIFY_BASE = "https://api.apify.com/v2"
 
@@ -243,37 +245,61 @@ Task:
 
 # ── WHATSAPP DIGEST ───────────────────────────────────────────────────────────
 
-def send_whatsapp(message: str):
-    from twilio.rest import Client
-    client = Client(TWILIO_SID, TWILIO_AUTH)
-    # Split into chunks if > 1600 chars (WhatsApp limit)
-    chunks = [message[i:i+1500] for i in range(0, len(message), 1500)]
-    for chunk in chunks:
-        client.messages.create(
-            body=chunk,
-            from_=TWILIO_FROM,
-            to=WHATSAPP_TO,
-        )
-        time.sleep(1)
+def send_email(subject: str, html_body: str):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = GMAIL_USER
+    msg["To"]      = EMAIL_TO
+    msg.attach(MIMEText(html_body, "html"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        server.sendmail(GMAIL_USER, EMAIL_TO, msg.as_string())
 
 
-def build_message(ranked_jobs: list, total_scraped: int) -> str:
+def build_email(ranked_jobs: list, total_scraped: int) -> tuple:
     today = datetime.now().strftime("%d %b %Y")
-    lines = [
-        f"🔍 *Daily Job Digest — {today}*",
-        f"_Scraped {total_scraped} jobs · Showing top {len(ranked_jobs)} matches for Jahnvi_\n",
-    ]
+    subject = f"🔍 Your Daily Job Digest — {today}"
+
+    rows = ""
     for i, job in enumerate(ranked_jobs, 1):
         score = job.get("score", "?")
-        emoji = "🟢" if score >= 8 else "🟡" if score >= 6 else "🔴"
-        lines.append(
-            f"{i}. {emoji} *{job['title']}* — {job['company']}\n"
-            f"   📍 {job['location']} | 🌐 {job['source']} | ⭐ {score}/10\n"
-            f"   💡 {job.get('reason', '')}\n"
-            f"   🔗 {job.get('url', 'N/A')}\n"
-        )
-    lines.append("_Powered by Apify + Claude · Runs daily at 8 AM IST_")
-    return "\n".join(lines)
+        color = "#22c55e" if score >= 8 else "#f59e0b" if score >= 6 else "#ef4444"
+        rows += f"""
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:12px;font-weight:bold;color:#1e3a5f;">{i}. {job['title']}</td>
+          <td style="padding:12px;">{job['company']}</td>
+          <td style="padding:12px;">{job['location']}</td>
+          <td style="padding:12px;">{job['source']}</td>
+          <td style="padding:12px;text-align:center;">
+            <span style="background:{color};color:white;padding:2px 8px;border-radius:12px;font-weight:bold;">{score}/10</span>
+          </td>
+          <td style="padding:12px;color:#6b7280;font-size:13px;">{job.get('reason','')}</td>
+          <td style="padding:12px;"><a href="{job.get('url','#')}" style="color:#3b82f6;">Apply →</a></td>
+        </tr>"""
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:900px;margin:auto;padding:20px;">
+      <h2 style="color:#1e3a5f;">🔍 Daily Job Digest — {today}</h2>
+      <p style="color:#6b7280;">Scraped <b>{total_scraped}</b> jobs across LinkedIn, Naukri & Indeed. Here are your top <b>{len(ranked_jobs)}</b> matches:</p>
+      <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.1);">
+        <thead style="background:#1e3a5f;color:white;">
+          <tr>
+            <th style="padding:12px;text-align:left;">Role</th>
+            <th style="padding:12px;text-align:left;">Company</th>
+            <th style="padding:12px;text-align:left;">Location</th>
+            <th style="padding:12px;text-align:left;">Source</th>
+            <th style="padding:12px;text-align:left;">Fit Score</th>
+            <th style="padding:12px;text-align:left;">Why it fits</th>
+            <th style="padding:12px;text-align:left;">Link</th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <p style="color:#9ca3af;font-size:12px;margin-top:20px;">Powered by Apify + Claude · Runs daily at 8 AM IST</p>
+    </div>"""
+
+    return subject, html
 
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
@@ -307,9 +333,9 @@ def main():
     ranked = rank_jobs_with_claude(all_jobs)
     print(f"Top {len(ranked)} jobs selected.")
 
-    message = build_message(ranked, len(all_jobs))
-    print("\nSending WhatsApp digest...")
-    send_whatsapp(message)
+    subject, html = build_email(ranked, len(all_jobs))
+    print("\nSending email digest...")
+    send_email(subject, html)
     print("Done! ✅")
 
 
