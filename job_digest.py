@@ -109,11 +109,11 @@ def scrape_linkedin() -> list:
     for q in LINKEDIN_QUERIES:
         print(f"  LinkedIn: {q}")
         items = run_actor(
-            "bebity/linkedin-jobs-scraper",
+            "bebity~linkedin-jobs-scraper",
             {
                 "title": q["keywords"],
                 "location": q.get("location", "India"),
-                "publishedAt": "r86400",   # last 24 hours
+                "publishedAt": "r86400",
                 "rows": 10,
             },
         )
@@ -130,24 +130,52 @@ def scrape_linkedin() -> list:
     return jobs
 
 
+def scrape_google_jobs() -> list:
+    jobs = []
+    queries = [
+        "Business Analyst Tableau Ahmedabad",
+        "BI Analyst SQL remote India",
+        "Senior Business Analyst real estate India",
+    ]
+    for query in queries:
+        print(f"  Google Jobs: {query}")
+        items = run_actor(
+            "orgupdate~google-jobs-scraper",
+            {
+                "query": query,
+                "maxItems": 10,
+            },
+        )
+        for item in items:
+            jobs.append({
+                "source": "Google Jobs",
+                "title": item.get("title", ""),
+                "company": item.get("companyName", ""),
+                "location": item.get("location", ""),
+                "url": item.get("applyLink", item.get("url", "")),
+                "description": item.get("description", "")[:800],
+                "posted": item.get("postedAt", ""),
+            })
+    return jobs
+
+
 def scrape_indeed() -> list:
     jobs = []
     for q in INDEED_QUERIES:
         print(f"  Indeed: {q}")
         items = run_actor(
-            "misceres/indeed-scraper",
+            "borderline~indeed-scraper",
             {
                 "position": q["position"],
                 "country": q.get("country", "IN"),
                 "location": q.get("location", ""),
                 "maxItems": 10,
-                "parseCompanyDetails": False,
             },
         )
         for item in items:
             jobs.append({
                 "source": "Indeed",
-                "title": item.get("positionName", ""),
+                "title": item.get("positionName", item.get("title", "")),
                 "company": item.get("company", ""),
                 "location": item.get("location", ""),
                 "url": item.get("url", ""),
@@ -162,7 +190,7 @@ def scrape_naukri() -> list:
     for query in NAUKRI_QUERIES:
         print(f"  Naukri: {query}")
         items = run_actor(
-            "curious_coder/naukri-scraper",
+            "stealth_mode~naukri-jobs-search-scraper",
             {
                 "keyword": query,
                 "location": "Ahmedabad",
@@ -313,6 +341,9 @@ def main():
 
     print("Scraping LinkedIn...")
     all_jobs += scrape_linkedin()
+
+    print("Scraping Google Jobs...")
+    all_jobs += scrape_google_jobs()
 
     print("Scraping Indeed...")
     all_jobs += scrape_indeed()
