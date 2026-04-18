@@ -340,16 +340,28 @@ def main():
     all_jobs = []
 
     print("Scraping LinkedIn...")
-    all_jobs += scrape_linkedin()
+    try:
+        all_jobs += scrape_linkedin()
+        print(f"  LinkedIn: {len(all_jobs)} jobs so far")
+    except Exception as e:
+        print(f"  LinkedIn failed: {e}")
 
     print("Scraping Google Jobs...")
-    all_jobs += scrape_google_jobs()
+    try:
+        all_jobs += scrape_google_jobs()
+        print(f"  Google Jobs: {len(all_jobs)} jobs so far")
+    except Exception as e:
+        print(f"  Google Jobs failed: {e}")
 
-    print("Scraping Indeed...")
-    all_jobs += scrape_indeed()
+    print("Scraping Indeed... (skipping for now)")
+    # all_jobs += scrape_indeed()
 
     print("Scraping Naukri...")
-    all_jobs += scrape_naukri()
+    try:
+        all_jobs += scrape_naukri()
+        print(f"  Naukri: {len(all_jobs)} jobs so far")
+    except Exception as e:
+        print(f"  Naukri failed: {e}")
 
     print(f"\nTotal raw jobs: {len(all_jobs)}")
     all_jobs = deduplicate(all_jobs)
