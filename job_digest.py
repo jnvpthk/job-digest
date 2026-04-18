@@ -109,7 +109,7 @@ def scrape_linkedin() -> list:
     for q in LINKEDIN_QUERIES:
         print(f"  LinkedIn: {q}")
         items = run_actor(
-            "bebity~linkedin-jobs-scraper",
+            "worldunboxer~rapid-linkedin-scraper",
             {
                 "title": q["keywords"],
                 "location": q.get("location", "India"),
@@ -140,7 +140,7 @@ def scrape_google_jobs() -> list:
     for query in queries:
         print(f"  Google Jobs: {query}")
         items = run_actor(
-            "orgupdate~google-jobs-scraper",
+            "igview-owner~google-jobs-scraper",
             {
                 "query": query,
                 "maxItems": 10,
@@ -164,7 +164,7 @@ def scrape_indeed() -> list:
     for q in INDEED_QUERIES:
         print(f"  Indeed: {q}")
         items = run_actor(
-            "borderline~indeed-scraper",
+            "santamaria-automations~indeed-scraper",
             {
                 "position": q["position"],
                 "country": q.get("country", "IN"),
@@ -190,7 +190,7 @@ def scrape_naukri() -> list:
     for query in NAUKRI_QUERIES:
         print(f"  Naukri: {query}")
         items = run_actor(
-            "stealth_mode~naukri-jobs-search-scraper",
+            "muhammetakkurtt~naukri-job-scraper",
             {
                 "keyword": query,
                 "location": "Ahmedabad",
